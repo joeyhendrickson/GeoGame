@@ -1,6 +1,6 @@
 import { getEmbedding, chatCompletion } from './openai';
 import { queryPinecone } from './pinecone';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
@@ -337,17 +337,78 @@ export async function generateDocument(
 
     return await Packer.toBuffer(doc);
   } else if (type === 'pdf') {
-    // For PDF generation, we'll use pdf-lib with a simple text approach
-    // In production, you may want to use a more robust PDF generation library
+    // Generate PDF using pdf-lib
     const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([612, 792]); // US Letter size
+    let currentPage = pdfDoc.addPage([612, 792]); // US Letter size
+    const { width, height } = currentPage.getSize();
     
-    // Note: pdf-lib requires embedding fonts for text rendering
-    // For simplicity, we'll return the text content as a base64 encoded string
-    // that can be converted to PDF on the client side, or use a service
-    // For now, return as text file with .pdf extension suggestion
-    // In production, consider using a PDF generation service or library with font support
-    return Buffer.from(filledContent, 'utf-8');
+    // Embed standard font
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    
+    // Split content into lines and paragraphs
+    const paragraphs = filledContent.split('\n\n').filter(p => p.trim().length > 0);
+    let yPosition = height - 50;
+    const margin = 50;
+    const lineHeight = 14;
+    const fontSize = 11;
+    
+    for (const paragraph of paragraphs) {
+      // Check if we need a new page
+      if (yPosition < margin + lineHeight) {
+        currentPage = pdfDoc.addPage([612, 792]);
+        yPosition = height - 50;
+      }
+      
+      // Split long paragraphs into lines that fit the page width
+      const words = paragraph.split(' ');
+      let currentLine = '';
+      
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const textWidth = font.widthOfTextAtSize(testLine, fontSize);
+        
+        if (textWidth > width - (margin * 2)) {
+          // Draw current line and start new line
+          if (currentLine) {
+            currentPage.drawText(currentLine, {
+              x: margin,
+              y: yPosition,
+              size: fontSize,
+              font: font,
+              color: rgb(0, 0, 0),
+            });
+            yPosition -= lineHeight;
+            
+            // Check if we need a new page
+            if (yPosition < margin + lineHeight) {
+              currentPage = pdfDoc.addPage([612, 792]);
+              yPosition = height - 50;
+            }
+          }
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      
+      // Draw remaining line
+      if (currentLine) {
+        currentPage.drawText(currentLine, {
+          x: margin,
+          y: yPosition,
+          size: fontSize,
+          font: font,
+          color: rgb(0, 0, 0),
+        });
+        yPosition -= lineHeight;
+      }
+      
+      // Add spacing between paragraphs
+      yPosition -= lineHeight * 0.5;
+    }
+    
+    const pdfBytes = await pdfDoc.save();
+    return Buffer.from(pdfBytes);
   } else {
     // Plain text or HTML
     if (type === 'html') {

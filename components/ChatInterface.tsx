@@ -459,9 +459,9 @@ export default function ChatInterface() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <p className="text-xl font-semibold mb-2 text-gray-800">Welcome to ULTRA Advisor</p>
-            <p className="text-gray-600 mb-1">Ask me anything about Blackboard Ultra, course setup, management, strategic use of Ultra, or content questions.</p>
-            <p className="text-sm text-gray-500 mt-2">I&apos;ll reference a vast knowledge base about Ultra to provide my responses.</p>
+            <p className="text-xl font-semibold mb-2 text-gray-800">Welcome to Telephony Advisor</p>
+            <p className="text-gray-600 mb-1">Ask me anything about telephony systems, project management, or related content.</p>
+            <p className="text-sm text-gray-500 mt-2">I&apos;ll reference a vast knowledge base about telephony to provide my responses.</p>
           </div>
         )}
         {messages.map((message, index) => (

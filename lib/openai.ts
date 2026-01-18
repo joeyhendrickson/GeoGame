@@ -45,21 +45,29 @@ export async function chatCompletion(
   const systemMessage = hasSystemMessage && options?.preserveSystemMessage
     ? undefined // Don't add default system message if one is provided and we want to preserve it
     : context
-    ? `You are an intelligent advisor for Blackboard Ultra. Use the following context from the knowledge base to answer questions accurately and helpfully:\n\n${context}\n\nIf the context doesn't contain relevant information, use your general knowledge but indicate when you're doing so.\n\nIMPORTANT: Write in a natural, conversational tone. Do not use markdown formatting like ### headers, **bold**, *italic*, code blocks, or bullet points. Write as if you're speaking directly to the user in plain, human-friendly text.`
-    : 'You are an intelligent advisor for Blackboard Ultra. Provide helpful, accurate information about Blackboard Ultra, project management, and content updates.\n\nIMPORTANT: Write in a natural, conversational tone. Do not use markdown formatting like ### headers, **bold**, *italic*, code blocks, or bullet points. Write as if you\'re speaking directly to the user in plain, human-friendly text.';
+    ? `You are an intelligent advisor for telephony systems and projects. Use the following context from the knowledge base to answer questions accurately and helpfully:\n\n${context}\n\nIf the context doesn't contain relevant information, use your general knowledge but indicate when you're doing so.\n\nIMPORTANT: Write in a natural, conversational tone. Do not use markdown formatting like ### headers, **bold**, *italic*, code blocks, or bullet points. Write as if you're speaking directly to the user in plain, human-friendly text.`
+    : 'You are an intelligent advisor for telephony systems and projects. Provide helpful, accurate information about telephony systems, project management, and related content updates.\n\nIMPORTANT: Write in a natural, conversational tone. Do not use markdown formatting like ### headers, **bold**, *italic*, code blocks, or bullet points. Write as if you\'re speaking directly to the user in plain, human-friendly text.';
 
   const allMessages = systemMessage 
     ? [{ role: 'system' as const, content: systemMessage }, ...messages]
     : messages;
 
-  const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+  const model = process.env.OPENAI_MODEL || 'gpt-5.2';
   
-  const response = await client.chat.completions.create({
+  const completionParams: any = {
     model: model,
     messages: allMessages,
     temperature: options?.temperature ?? 0.7,
-    max_tokens: 4000, // Increased for longer template filling
-  });
+  };
+
+  // Use max_completion_tokens for GPT-5 models, max_tokens for others
+  if (model.startsWith('gpt-5')) {
+    completionParams.max_completion_tokens = 4000;
+  } else {
+    completionParams.max_tokens = 4000;
+  }
+
+  const response = await client.chat.completions.create(completionParams);
 
   return response.choices[0]?.message?.content || '';
 }
