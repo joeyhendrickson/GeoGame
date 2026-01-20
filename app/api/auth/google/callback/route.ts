@@ -31,8 +31,25 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('OAuth callback error:', error);
+    const errorDetails = error instanceof Error ? {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    } : { error: 'Unknown error', raw: String(error) };
+    
+    // Log the client ID (first part only for security)
+    const clientId = process.env.GOOGLE_CLIENT_ID || 'NOT_SET';
+    const clientIdPrefix = clientId.split('-')[0] || 'UNKNOWN';
+    console.error('Client ID prefix:', clientIdPrefix, 'Client ID length:', clientId.length);
+    console.error('Client Secret present:', !!process.env.GOOGLE_CLIENT_SECRET);
+    console.error('Redirect URI:', process.env.GOOGLE_REDIRECT_URI);
+    
     return NextResponse.json(
-      { error: 'Failed to process authorization', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        error: 'Failed to process authorization', 
+        details: error instanceof Error ? error.message : 'Unknown error',
+        hint: 'Check that GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local match your Google Cloud Console OAuth client'
+      },
       { status: 500 }
     );
   }

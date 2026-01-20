@@ -17,6 +17,10 @@ interface Message {
   sources?: Source[];
   confidenceScore?: number;
   timestamp?: string;
+  mediaUrl?: string;
+  mediaType?: 'image' | 'video';
+  mediaModel?: 'google' | 'openai';
+  mediaContent?: string; // For video descriptions
 }
 
 interface Conversation {
@@ -35,6 +39,7 @@ export default function ChatInterface() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null);
+  const [mediaMode, setMediaMode] = useState<'none' | 'image' | 'video'>('none');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const speechSynthesisRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -130,7 +135,7 @@ export default function ChatInterface() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Form submitted, input:', input);
+    console.log('Form submitted, input:', input, 'mediaMode:', mediaMode);
     if (!input.trim() || isLoading) {
       console.log('Form submission blocked - empty input or loading');
       return;
@@ -143,9 +148,53 @@ export default function ChatInterface() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input;
     setInput('');
     setIsLoading(true);
 
+    // If media mode is enabled, generate media first
+    if (mediaMode !== 'none') {
+      try {
+        const mediaResponse = await fetch('/api/generate-media', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: currentInput,
+            type: mediaMode,
+          }),
+        });
+
+        const mediaData = await mediaResponse.json();
+
+        if (mediaResponse.ok && mediaData.success) {
+          const mediaMessage: Message = {
+            role: 'assistant',
+            content: mediaMode === 'image' 
+              ? `Generated ${mediaMode} using ${mediaData.model.toUpperCase()} model.` 
+              : mediaData.content || `Generated ${mediaMode} using ${mediaData.model.toUpperCase()} model.`,
+            mediaUrl: mediaData.url,
+            mediaType: mediaMode,
+            mediaModel: mediaData.model,
+            mediaContent: mediaData.content,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, mediaMessage]);
+          saveConversationToHistory([...messages, userMessage, mediaMessage]);
+          setIsLoading(false);
+          return; // Exit early, don't process chat
+        } else {
+          // If media generation fails, continue with normal chat
+          console.warn('Media generation failed, continuing with chat:', mediaData.error);
+        }
+      } catch (mediaError) {
+        console.error('Media generation error:', mediaError);
+        // Continue with normal chat on error
+      }
+    }
+
+    // Normal chat flow
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -153,7 +202,7 @@ export default function ChatInterface() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: input,
+          message: currentInput,
           history: messages,
         }),
       });
@@ -301,7 +350,7 @@ export default function ChatInterface() {
     const title = firstUserMessage?.content.substring(0, 50) || 'Conversation';
     const date = new Date().toLocaleString();
     
-    let content = `Ultra Advisor - Conversation Export\n`;
+    let content = `GeoGame Research - Conversation Export\n`;
     content += `Generated: ${date}\n`;
     content += `Title: ${title}\n\n`;
     content += `${'='.repeat(60)}\n\n`;
@@ -459,9 +508,9 @@ export default function ChatInterface() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <p className="text-xl font-semibold mb-2 text-gray-800">Welcome to Telephony Advisor</p>
-            <p className="text-gray-600 mb-1">Ask me anything about telephony systems, project management, or related content.</p>
-            <p className="text-sm text-gray-500 mt-2">I&apos;ll reference a vast knowledge base about telephony to provide my responses.</p>
+            <p className="text-xl font-semibold mb-2 text-gray-800">Welcome to GeoGame Research</p>
+            <p className="text-gray-600 mb-1">Ask me anything about geolocation games, game mechanics, or related research content.</p>
+            <p className="text-sm text-gray-500 mt-2">I&apos;ll reference a vast knowledge base about geolocation games to provide my responses.</p>
           </div>
         )}
         {messages.map((message, index) => (
@@ -484,7 +533,43 @@ export default function ChatInterface() {
               }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="whitespace-pre-wrap leading-relaxed flex-1">{message.content}</p>
+                <div className="flex-1">
+                  {message.mediaUrl && message.mediaType === 'image' && (
+                    <div className="mb-3">
+                      <img 
+                        src={message.mediaUrl} 
+                        alt="Generated image" 
+                        className="max-w-full h-auto rounded-lg border border-gray-200"
+                      />
+                      {message.mediaModel && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Model: {message.mediaModel.toUpperCase()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {message.mediaType === 'video' && (
+                    <div className="mb-3">
+                      {message.mediaUrl ? (
+                        <video 
+                          src={message.mediaUrl} 
+                          controls 
+                          className="max-w-full h-auto rounded-lg border border-gray-200"
+                        />
+                      ) : (
+                        <div className="bg-gray-100 p-4 rounded-lg border border-gray-200">
+                          <p className="text-sm text-gray-700">{message.mediaContent || message.content}</p>
+                        </div>
+                      )}
+                      {message.mediaModel && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Model: {message.mediaModel.toUpperCase()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                </div>
                 {message.role === 'assistant' && (
                   <button
                     onClick={() => speakMessage(index, message.content)}
@@ -608,29 +693,82 @@ export default function ChatInterface() {
       </div>
 
       {/* Input Form */}
-      <form onSubmit={handleSubmit} className="flex gap-3">
-        <div className="flex-1 relative">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question about Blackboard Ultra..."
-                    className="w-full px-5 py-4 pr-12 border-2 border-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 bg-white shadow-sm disabled:bg-gray-50 disabled:cursor-not-allowed"
-            disabled={isLoading}
-          />
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        {/* Media Mode Toggle Buttons */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setMediaMode('none')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              mediaMode === 'none'
+                ? 'bg-black text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Text
+          </button>
+          <button
+            type="button"
+            onClick={() => setMediaMode('image')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              mediaMode === 'image'
+                ? 'bg-black text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Image
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMediaMode('video')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              mediaMode === 'video'
+                ? 'bg-black text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Video
+            </span>
+          </button>
         </div>
-        <button
-          type="submit"
-          disabled={isLoading || !input.trim()}
-                  className="px-8 py-4 bg-black text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
-        >
-          Send
-        </button>
+        
+        <div className="flex gap-3">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={mediaMode === 'none' 
+                ? "Ask a question about geolocation games..." 
+                : mediaMode === 'image'
+                ? "Describe an image to generate..."
+                : "Describe a video to generate..."}
+              className="w-full px-5 py-4 pr-12 border-2 border-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all duration-200 bg-white shadow-sm disabled:bg-gray-50 disabled:cursor-not-allowed"
+              disabled={isLoading}
+            />
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+          <button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="px-8 py-4 bg-black text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
+          >
+            Send
+          </button>
+        </div>
       </form>
     </div>
   );

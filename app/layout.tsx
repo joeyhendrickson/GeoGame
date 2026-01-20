@@ -5,8 +5,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Telephony Advisor',
-  description: 'Telephony Advisor and Project Analysis Tool, Powered by AI',
+  title: 'GeoGame Research',
+  description: 'GeoGame Research - Deep Research on Geolocation Games',
 };
 
 export default function RootLayout({

@@ -1,5 +1,5 @@
 {
-  "name": "ultrawebaudit",
+  "name": "geogame-research",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -23,6 +23,7 @@
     "openai": "^4.20.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
+    "pptxgenjs": "^4.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "zod": "^3.22.4"

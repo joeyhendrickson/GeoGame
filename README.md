@@ -1,4 +1,4 @@
-# Ultra Advisor
+# GeoGame Research
 
 An intelligent FAQ and advisory application for Blackboard Ultra content management, powered by OpenAI GPT-4o-mini, Pinecone vector database, and Google Drive integration.
 
